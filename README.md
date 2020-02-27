@@ -7,8 +7,8 @@ wrriten in C, based on a state-machine and a stack.
 # Supports:
 Addition +  
 Subtruction -  
-Multiplication *  
-Division /  
+Multiplication * or x  
+Division / or :  
 Power ^  
 White spaces of defferent kinds  
 Multiple parentheses '3 * (4 - (2^ 3))'  

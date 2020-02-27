@@ -66,7 +66,7 @@ void AddSubtructTest(void)
 void MultiDivTest(void)
 {
 	result_t result = {0};
-	char str[20] = " 3 + 5*2/5*3 - 2/1";
+	char str[20] = " 3 + 5x2/5*3 - 2:1";
 	
 	printf("multiplication + division:\t\t");
 	result = Calculator(str);
@@ -88,13 +88,15 @@ void ErrorsTest(void)
 	result_t result_3 = {0};
 	char str4[20] = "3/0";
 	result_t result_4 = {0};
+	char str5[20] = "-1^0.5";
+	result_t result_5 = {0};
 	
 	printf("Errors test:\t\t\t\t");
 	result_1 = Calculator(str1);
 	result_2 = Calculator(str2);
 	result_3 = Calculator(str3);
 	result_4 = Calculator(str4);
-	
+	result_5 = Calculator(str5);
 	
 	(-1 			== result_1.result)	&&
 	(SYNTAX_ERROR	== result_1.status)	&&
@@ -103,7 +105,9 @@ void ErrorsTest(void)
 	(-1 			== result_3.result)	&&
 	(SYNTAX_ERROR	== result_3.status)	&&
 	(-1 			== result_4.result)	&&
-	(MATH_ERROR		== result_4.status)
+	(MATH_ERROR		== result_4.status) &&
+	(-1 			== result_5.result)	&&
+	(MATH_ERROR		== result_5.status)
 	?
 	printf("SUCCESS") : printf("FAIL");
 }

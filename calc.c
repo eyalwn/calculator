@@ -9,7 +9,7 @@
 #include <stdlib.h>	/* strtod */
 #include <string.h>	/* strlen */
 #include <ctype.h>	/* isdigit */
-#include <math.h>	/* pow */
+#include <math.h>	/* pow, isnan */
 
 #include "calc.h"
 #include "stack/stack.h"
@@ -193,7 +193,9 @@ static void InitEventsLut(void)
 	g_events_lut['-']  = MINUS;
 	g_events_lut['+']  = OP;
 	g_events_lut['*']  = OP;
+	g_events_lut['x']  = OP;
 	g_events_lut['/']  = OP;
+	g_events_lut[':']  = OP;
 	g_events_lut['^']  = OP;
 	
 	g_events_lut['(']  = OPEN_PARENTHESES;
@@ -454,7 +456,22 @@ static double MakeOperation(double num1, double num2, char op_sign)
 			ret_val = num1 * num2;
 			break;
 		
+		case 'x':
+			ret_val = num1 * num2;
+			break;
+		
 		case '/':
+			if (0 != num2)
+			{
+				ret_val = num1 / num2;
+			}
+			else
+			{				
+				g_result.status = MATH_ERROR;
+			}
+			break;
+		
+		case ':':
 			if (0 != num2)
 			{
 				ret_val = num1 / num2;
@@ -468,7 +485,7 @@ static double MakeOperation(double num1, double num2, char op_sign)
 		case '^':
 			ret_val = pow(num1, num2);
 			
-			if (ret_val == NAN)
+			if (isnan(ret_val))
 			{
 				g_result.status = MATH_ERROR;
 			}
@@ -489,7 +506,7 @@ static int OpHasHigherPriority(char op1, char op2)
 {
 	int ret_val = FALSE;
 	
-	if ('*' == op1 || '/' == op1)
+	if ('*' == op1 || 'x' == op1 || '/' == op1 || ':' == op1)
 	{
 		if ('+' == op2 || '-' == op2)
 		{
