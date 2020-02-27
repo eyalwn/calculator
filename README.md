@@ -14,3 +14,4 @@ White spaces of defferent kinds
 Multiple parentheses '3 * (4 - (2^ 3))'
 Floating point numbers ('3.14')
 Minus as a sign before numbers (e.g. '5 + -3')
+
