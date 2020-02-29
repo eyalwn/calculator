@@ -1,10 +1,10 @@
 # calculator
 A calculator app - parses a string and prints the result.  
-Include a makefile with option for creating an automated test.
+Include a stack implementation, an automated test unit-test, and a makefile.
 
-wrriten in C, based on a state-machine and a stack.
+Wrriten in C, based on a state-machine and a stack.
 
-# Supports:
+# Abilities:
 Addition +  
 Subtruction -  
 Multiplication * or x  

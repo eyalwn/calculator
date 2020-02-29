@@ -1,11 +1,10 @@
 /******************************************************************************
-*	Filename	:	calc_test.c
+*	Filename	:	calc_app.c
 *	Developer	:	Eyal Weizman
-*	Last Update	:	2020-02-25
 *	Description	:	calculator application
 *******************************************************************************/
-#include <stdio.h> 		/* printf */
-#include <string.h>
+#include <stdio.h> 		/* printf, fgets */
+#include <string.h>     /* strcmp */
 
 #include "calc.h"
 
@@ -17,11 +16,12 @@
 *******************************************************************************/
 int main(void)
 {
-	result_t result = {0};
 	char user_input[MAX_CHARS] = {0};
+	result_t result = {0};
 	
 	printf("Welcome to calculator application!\n");
 	
+	// keep asking for user input until he types 'q'
 	while (1)
 	{
 		printf("\nEnter any valid claculation, and the answer will appear.\n");
@@ -41,7 +41,7 @@ int main(void)
 		}
 		
 		// calculating
-		result = Calculator(user_input);
+		result = Calculate(user_input);
 		
 		switch (result.status)
 		{

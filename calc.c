@@ -1,10 +1,8 @@
 /*******************************************************************************
 *	Filename	:	calc.c
 *	Developer	:	Eyal Weizman
-*	Last Update	:	2020-02-25
-*	Description	:	calc source file
+*	Description	:	calculator source file
 *******************************************************************************/
-#include <stdlib.h>	/* malloc, free */
 #include <assert.h> /* assert		*/
 #include <stdlib.h>	/* strtod */
 #include <string.h>	/* strlen */
@@ -13,9 +11,6 @@
 
 #include "calc.h"
 #include "stack/stack.h"
-
-/******************************* typdefs **************************************/
-typedef void (*action_func_t)(stack_t *num_st, stack_t *op_st, char **runner);
 
 /******************************* MACROS ***************************************/
 #define UNUSED(x) ((void) x)
@@ -27,12 +22,13 @@ typedef void (*action_func_t)(stack_t *num_st, stack_t *op_st, char **runner);
 #define ASCII_TABLE_SIZE 128
 
 /******************************* enums ****************************************/
-enum boolean
+typedef enum boolean
 {
 	FALSE = 0,
 	TRUE = 1
-};
+}bool;
 
+/* state options for the calculator */
 enum states
 {
 	WAIT_FOR_NUM,
@@ -42,6 +38,7 @@ enum states
 	MAX_STATES
 };
 
+/* options for input events */
 enum events
 {
 	DIGIT,
@@ -55,81 +52,101 @@ enum events
 	MAX_EVENTS
 };
 
+/*************************** structs & typedefs *******************************/
+/* arguments pack to be passed to the action funcs. */
+typedef struct calculator_s
+{
+    enum states cur_state;  /* the current state of the calculator */
+    char* runner;           /* runner on the user-input string */
+    stack_t* num_st;        /* stack for numbers */
+    stack_t* op_st;         /* stack for operation */
+    result_t result;        /* result value to be returned to the user */
+}calculator_t;
+
+/* the type common to all the functions in the action funcs table */
+typedef void (*action_func_t)(calculator_t* calculator);
+
 /************************* internal functions *********************************/
 /* init funcs */
 static void InitActionFuncsLut(void);
-static void InitEventsLut(void);
+static void  InitEventsLut(void);
 
 /* action funcs */
-static void GetNumber(stack_t *num_st, stack_t *op_st, char **runner);
-static void GetOperation(stack_t *num_st, stack_t *op_st, char **runner);
-static void SpaceSkip(stack_t *num_st, stack_t *op_st, char **runner);
-static void PushParentheses(stack_t *num_st, stack_t *op_st, char **runner);
-static void CalcParentheses(stack_t *num_st, stack_t *op_st, char **runner);
-static void GetResult(stack_t *num_st, stack_t *op_st, char **runner);
-static void Error(stack_t *num_st, stack_t *op_st, char **runner);
+static void GetNumber(calculator_t* calculator);
+static void GetOperation(calculator_t* calculator);
+static void SkipSpace(calculator_t* calculator);
+static void PushParentheses(calculator_t* calculator);
+static void CalcParentheses(calculator_t* calculator);
+static void GetResult(calculator_t* calculator);
+static void Error(calculator_t* calculator);
 
 /* other funcs */
-static void Calculate(stack_t *num_st, stack_t *op_st);
-static double MakeOperation(double num1, double num2, char op_sign);
-static int OpHasHigherPriority(char op1, char op2);
+static void ExecuteLastOp(calculator_t* calculator);
+static result_t PerformOperation(double num1, double num2, char op_sign);
+static bool OpHasHigherPriority(char op1, char op2);
 
 
 /************************* global variable ************************************/
 static char 			g_events_lut[ASCII_TABLE_SIZE];
 static action_func_t 	g_action_funcs_lut[MAX_STATES][MAX_EVENTS] = {NULL};
-static int 				g_state 	= WAIT_FOR_NUM;/* start-state of FSM */
-static result_t			g_result	= {0};
 
 
 /******************************************************************************
 ****************************	functions	***********************************
 *******************************************************************************/
 /******************************************************************************
-*								Calculator
+*								Calculate
 *******************************************************************************/
-result_t Calculator(char *str)
+result_t Calculate(const char* str)
 {
-	stack_t *num_stack = NULL;
-	stack_t *op_stack = NULL;
-	size_t stack_max_limit = 0;
-	int event 		= 0;
-	char *runner	= str;
+	calculator_t calculator = {0};
+	size_t stack_max_limit  = 0;
+	int cur_event 		    = 0;
 	
 	assert(str);
 	
 	InitEventsLut();
 	InitActionFuncsLut();
-	g_state 		= WAIT_FOR_NUM;/* start-state of FSM */
-	
-	g_result.result = RESULT_WHEN_ERROR;
-	g_result.status = APPLICATION_ERROR;
 	
 	/* allocate surely enough sapce in the stacks - push can never fail */
 	stack_max_limit = strlen(str);
-	num_stack = StackCreate(stack_max_limit, SIZE_OF_DOUBLE);
-	op_stack = StackCreate(stack_max_limit, SIZE_OF_CHAR);
+	calculator.num_st = StackCreate(stack_max_limit, SIZE_OF_DOUBLE);
+	calculator.op_st = StackCreate(stack_max_limit, SIZE_OF_CHAR);
 	
-	if (NULL != num_stack)
+	/* makes sure both stacks have been created successfuly */
+	if (calculator.num_st != NULL && calculator.op_st != NULL)
 	{
-		if (NULL != op_stack)
-		{
-			/*** main loop ***/
-			while (END != g_state)
-			{
-				event = g_events_lut[(unsigned char)*runner];
-				g_action_funcs_lut[g_state][event](num_stack, op_stack,&runner);
-			}
-
-			StackDestroy(op_stack);
-			op_stack = NULL;
-		}
+		/* init calculator pack */
+		calculator.cur_state = WAIT_FOR_NUM; /* start-state of calculator */
+		calculator.runner = (char*)str;
+		calculator.result.status = CALC_SUCCESS;
 		
-		StackDestroy(num_stack);
-		num_stack = NULL;
+		/*** main loop ***/
+		while (calculator.cur_state != END)
+		{
+			cur_event = g_events_lut[(unsigned char)*(calculator.runner)];
+			g_action_funcs_lut[calculator.cur_state][cur_event](&calculator);
+		}
+	}
+	else
+	{
+		calculator.result.status = APPLICATION_ERROR;
 	}
 	
-	return (g_result);
+	/* clean-ups if needed */
+	if (calculator.op_st != NULL)
+	{
+		StackDestroy(calculator.op_st);
+		calculator.op_st = NULL;
+	}
+	
+	if (calculator.num_st != NULL)
+	{
+		StackDestroy(calculator.num_st);
+		calculator.num_st = NULL;
+	}
+	
+	return (calculator.result);
 }
 
 
@@ -141,7 +158,7 @@ static void InitActionFuncsLut(void)
 	g_action_funcs_lut[WAIT_FOR_NUM][DIGIT]				= GetNumber;
 	g_action_funcs_lut[WAIT_FOR_NUM][OP]				= Error;
 	g_action_funcs_lut[WAIT_FOR_NUM][MINUS]				= GetNumber;	
-	g_action_funcs_lut[WAIT_FOR_NUM][SPACE]				= SpaceSkip;
+	g_action_funcs_lut[WAIT_FOR_NUM][SPACE]				= SkipSpace;
 	g_action_funcs_lut[WAIT_FOR_NUM][OPEN_PARENTHESES]	= PushParentheses;
 	g_action_funcs_lut[WAIT_FOR_NUM][CLOSE_PARENTHESES]	= Error;
 	g_action_funcs_lut[WAIT_FOR_NUM][END_OF_STRING]		= Error;
@@ -150,7 +167,7 @@ static void InitActionFuncsLut(void)
 	g_action_funcs_lut[WAIT_FOR_OP][DIGIT]				= Error;
 	g_action_funcs_lut[WAIT_FOR_OP][OP]					= GetOperation;
 	g_action_funcs_lut[WAIT_FOR_OP][MINUS]				= GetOperation;
-	g_action_funcs_lut[WAIT_FOR_OP][SPACE]				= SpaceSkip;
+	g_action_funcs_lut[WAIT_FOR_OP][SPACE]				= SkipSpace;
 	g_action_funcs_lut[WAIT_FOR_OP][OPEN_PARENTHESES]	= Error;
 	g_action_funcs_lut[WAIT_FOR_OP][CLOSE_PARENTHESES]	= CalcParentheses;
 	g_action_funcs_lut[WAIT_FOR_OP][END_OF_STRING]		= GetResult;
@@ -190,7 +207,7 @@ static void InitEventsLut(void)
 	}
 	
 	/* exception for operations & others */
-	g_events_lut['-']  = MINUS;
+	g_events_lut['-']  = MINUS;/* NOTE: minus has double meaning */
 	g_events_lut['+']  = OP;
 	g_events_lut['*']  = OP;
 	g_events_lut['x']  = OP;
@@ -215,79 +232,62 @@ static void InitEventsLut(void)
 /******************************************************************************
 *								GetNumber
 *******************************************************************************/
-static void GetNumber(stack_t *num_st, stack_t *op_st, char **runner)
+static void GetNumber(calculator_t* calculator)
 {
 	double num = 0;
 	
-	UNUSED(op_st);
-	
-	assert(num_st);
-	assert(runner);
-	
 	/* if the event is MINUS and the next char isnt a digit - thats an error */
-	if (MINUS == g_events_lut[(unsigned char)**runner] && 
-		!isdigit(*(*runner + 1)))
+	if (g_events_lut[(unsigned char)*(calculator->runner)] == MINUS && 
+		!isdigit(*(calculator->runner + 1)))
 	{
-		g_state = ERROR;
+		calculator->cur_state = ERROR;
 	}
 	else
 	{
 		/* gets the whole number + brings runner to the end of the number */
-		num = strtod(*runner, runner);
-		StackPush(num_st, &num);
-		g_state = WAIT_FOR_OP;
+		num = strtod(calculator->runner, &(calculator->runner));
+		StackPush(calculator->num_st, &num);
+		calculator->cur_state = WAIT_FOR_OP;
 	}
 }
 
 /******************************************************************************
 *								GetOperation
 *******************************************************************************/
-static void GetOperation(stack_t *num_st, stack_t *op_st, char **runner)
+static void GetOperation(calculator_t* calculator)
 {
-	char current_op = 0;
-	unsigned char *last_op_ptr = NULL;
-	
-	assert(num_st);
-	assert(op_st);
-	assert(runner);
-	
-	current_op = **runner;
-	last_op_ptr = StackPeek(op_st);
+	char current_op = *(calculator->runner);
+	unsigned char* last_op_ptr = StackPeek(calculator->op_st);
 	
 	/* makes sure the last op isn't NULL or open-parentheses */
-	if (			NULL != last_op_ptr 				&&
-		OPEN_PARENTHESES != g_events_lut[*last_op_ptr]	&&
-		!OpHasHigherPriority(current_op, *last_op_ptr))
+	if (	           last_op_ptr != NULL  			&&
+		g_events_lut[*last_op_ptr] != OPEN_PARENTHESES	&&
+		!OpHasHigherPriority(current_op,* last_op_ptr))
 	{
 		/* pop out last op and 2 last numbers, calc, and push result */
-		Calculate(num_st, op_st);
+		ExecuteLastOp(calculator);
 	}
 	
-	StackPush(op_st, &current_op);
-	++*runner;
-	g_state = WAIT_FOR_NUM;
+	StackPush(calculator->op_st, &current_op);
+	++(calculator->runner);
+	calculator->cur_state = WAIT_FOR_NUM;
 	
 	/* math errors case */
-	if (MATH_ERROR == g_result.status)
+	if (calculator->result.status == MATH_ERROR)
 	{
-		g_state = ERROR;
+		calculator->cur_state = ERROR;
 	}
 }
 
 
 /******************************************************************************
-*								SpaceSkip
+*								SkipSpace
 *******************************************************************************/
-static void SpaceSkip(stack_t *num_st, stack_t *op_st, char **runner)
+static void SkipSpace(calculator_t* calculator)
 {
-	UNUSED(num_st);
-	UNUSED(op_st);
-	
-	assert(runner);
-	
-	while (SPACE == g_events_lut[(unsigned char)**runner])
+	while (g_events_lut[(unsigned char)*(calculator->runner)] == SPACE)
 	{
-		++*runner;
+		++(calculator->runner);
 	}
 }
 
@@ -295,50 +295,40 @@ static void SpaceSkip(stack_t *num_st, stack_t *op_st, char **runner)
 /******************************************************************************
 *							PushParentheses
 *******************************************************************************/
-static void PushParentheses(stack_t *num_st, stack_t *op_st, char **runner)
+static void PushParentheses(calculator_t* calculator)
 {
-	UNUSED(num_st);
-	
-	assert(op_st);
-	assert(runner);
-	
-	StackPush(op_st, *runner);
-	++*runner;
-	g_state = WAIT_FOR_NUM;
+	StackPush(calculator->op_st, calculator->runner);
+	++(calculator->runner);
+	calculator->cur_state = WAIT_FOR_NUM;
 }
 
 
 /******************************************************************************
 *							CalcParentheses
 *******************************************************************************/
-static void CalcParentheses(stack_t *num_st, stack_t *op_st, char **runner)
+static void CalcParentheses(calculator_t* calculator)
 {
-	unsigned char *last_op_ptr = NULL;
+	unsigned char* last_op_ptr = NULL;
 	
-	UNUSED(num_st);
+	last_op_ptr = StackPeek(calculator->op_st);
 	
-	assert(op_st);
-	assert(runner);
-	
-	last_op_ptr = StackPeek(op_st);
-	
-	while (OPEN_PARENTHESES != g_events_lut[*last_op_ptr] &&
-					   NULL != last_op_ptr)
+	while (g_events_lut[*last_op_ptr] != OPEN_PARENTHESES &&
+					    last_op_ptr   != NULL)
 	{
-		Calculate(num_st, op_st);
+		ExecuteLastOp(calculator);
 		/* checks next GetOperation in stack */
-		last_op_ptr = StackPeek(op_st);
+		last_op_ptr = StackPeek(calculator->op_st);
 	}
 	
 	/* pop the open-parentheses at the top */
-	StackPop(op_st);
-	++*runner;
-	g_state = WAIT_FOR_OP;
+	StackPop(calculator->op_st);
+	++(calculator->runner);
+	calculator->cur_state = WAIT_FOR_OP;
 	
 	/* case a matched parentheses wasn't found */
-	if (NULL == last_op_ptr)
+	if (last_op_ptr == NULL)
 	{
-		g_state = ERROR;
+		calculator->cur_state = ERROR;
 	}
 }
 
@@ -346,36 +336,31 @@ static void CalcParentheses(stack_t *num_st, stack_t *op_st, char **runner)
 /******************************************************************************
 *								GetResult
 *******************************************************************************/
-static void GetResult(stack_t *num_st, stack_t *op_st, char **runner)
+static void GetResult(calculator_t* calculator)
 {
 	double final_result = 0;
 	
-	UNUSED(runner);
-	
-	assert(num_st);
-	assert(op_st);
-	
 	/* execute all operations untill the stack is empty + checks next op isn't
 	   open parentheses */
-	while ((StackSize(op_st) > 0) &&
-		   (OPEN_PARENTHESES != g_events_lut[*(unsigned char *)StackPeek(op_st)]))
+	while ((StackSize(calculator->op_st) > 0) &&
+		   (g_events_lut[*(unsigned char* )StackPeek(calculator->op_st)] !=
+		   OPEN_PARENTHESES))
 	{
-		Calculate(num_st, op_st);
+		ExecuteLastOp(calculator);
 	}
 	
 	/* case of success */
-	if (0 == StackSize(op_st) && StackSize(num_st) && 
-		(g_result.status != MATH_ERROR))
+	if (StackSize(calculator->op_st) == 0 && StackSize(calculator->num_st) && 
+		(calculator->result.status == CALC_SUCCESS))
 	{
-		final_result = *(double *)StackPeek(num_st);
-		g_result.result = final_result;
-		g_result.status = CALC_SUCCESS;
-		g_state = END;
+		final_result = *(double* )StackPeek(calculator->num_st);
+		calculator->result.result = final_result;
+		calculator->cur_state = END;
 	}
 	else
 	/* means a parentheses syntax error */
 	{
-		g_state = ERROR;
+		calculator->cur_state = ERROR;
 	}
 	
 	return;
@@ -385,109 +370,102 @@ static void GetResult(stack_t *num_st, stack_t *op_st, char **runner)
 /******************************************************************************
 *								Error
 *******************************************************************************/
-static void Error(stack_t *num_st, stack_t *op_st, char **runner)
+static void Error(calculator_t* calculator)
 {
-	UNUSED(runner);
-	UNUSED(num_st);
-	UNUSED(op_st);
-	
 	/* defines default error status */
-	if (MATH_ERROR != g_result.status)
+	if (calculator->result.status != MATH_ERROR)
 	{
-		g_result.status = SYNTAX_ERROR;
+		calculator->result.status = SYNTAX_ERROR;
 	}
 	
-	g_result.result = RESULT_WHEN_ERROR;
+	calculator->result.result = RESULT_WHEN_ERROR;
 	
 	/* allows exiting the main loop */
-	g_state = END;
+	calculator->cur_state = END;
 	return;
 }
 
 
 /******************************************************************************
-*								Calculate
+*								ExecuteLastOp
 *******************************************************************************/
-static void Calculate(stack_t *num_st, stack_t *op_st)
+static void ExecuteLastOp(calculator_t* calculator)
 {
 	double num1 = 0;
 	double num2 = 0;
 	char op_sign = 0;
 	
-	assert(num_st);
-	assert(op_st);
+	op_sign = *(char* )StackPeek(calculator->op_st);
+	StackPop(calculator->op_st);
 	
-	op_sign = *(char *)StackPeek(op_st);
-	StackPop(op_st);
+	num2 = *(double* )StackPeek(calculator->num_st);
+	StackPop(calculator->num_st);
 	
-	num2 = *(double *)StackPeek(num_st);
-	StackPop(num_st);
-	
-	num1 = *(double *)StackPeek(num_st);
-	StackPop(num_st);
+	num1 = *(double* )StackPeek(calculator->num_st);
+	StackPop(calculator->num_st);
 	
 	/* calc + push result */
-	num1 = MakeOperation(num1, num2, op_sign);
-	StackPush(num_st, &num1);
+	calculator->result = PerformOperation(num1, num2, op_sign);
+	StackPush(calculator->num_st, &calculator->result.result);
 	
 	return;
 }
 
 
 /******************************************************************************
-*								MakeOperation
+*								PerformOperation
 *******************************************************************************/
-static double MakeOperation(double num1, double num2, char op_sign)
-/* syntax: num1 <GetOperation> num2 */
+static result_t PerformOperation(double num1, double num2, char op_sign)
+/* performing order: num1 <op_sign> num2 */
 {
-	double ret_val = 0;
+	result_t ret_val = {0};
 	
 	switch (op_sign)
 	{	
 		case '+':
-			ret_val = num1 + num2;
+			ret_val.result = num1 + num2;
 			break;
 	
 		case '-':
-			ret_val = num1 - num2;
+			ret_val.result = num1 - num2;
 			break;
 	
 		case '*':
-			ret_val = num1 * num2;
+			ret_val.result = num1 * num2;
 			break;
 		
 		case 'x':
-			ret_val = num1 * num2;
+			ret_val.result = num1 * num2;
 			break;
 		
 		case '/':
 			if (0 != num2)
 			{
-				ret_val = num1 / num2;
+				ret_val.result = num1 / num2;
 			}
 			else
 			{				
-				g_result.status = MATH_ERROR;
+				ret_val.status = MATH_ERROR;
 			}
 			break;
 		
 		case ':':
 			if (0 != num2)
 			{
-				ret_val = num1 / num2;
+				ret_val.result = num1 / num2;
 			}
 			else
 			{				
-				g_result.status = MATH_ERROR;
+				ret_val.status = MATH_ERROR;
 			}
 			break;
 			
 		case '^':
-			ret_val = pow(num1, num2);
+			ret_val.result = pow(num1, num2);
 			
-			if (isnan(ret_val))
+			if (isnan(ret_val.result))
 			{
-				g_result.status = MATH_ERROR;
+				ret_val.status = MATH_ERROR;
 			}
 			break;
 		
@@ -502,7 +480,7 @@ static double MakeOperation(double num1, double num2, char op_sign)
 /******************************************************************************
 *							OpHasHigherPriority
 *******************************************************************************/
-static int OpHasHigherPriority(char op1, char op2)
+static bool OpHasHigherPriority(char op1, char op2)
 {
 	int ret_val = FALSE;
 	

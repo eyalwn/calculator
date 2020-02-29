@@ -1,7 +1,7 @@
 /*****************************************************************************
- * File name  : calc.h
- * Developer  : Eyal Weizman
- * Date       : 2019-03-23
+ *  File name  : calc.h
+ *  Developer  : Eyal Weizman
+ *	Description: calculator header file
  *****************************************************************************/
 
 #ifndef __CALC_H__
@@ -18,22 +18,22 @@ typedef struct result_s result_t;
 enum calc_status
 {
     APPLICATION_ERROR = -3,
-    SYNTAX_ERROR,
-    MATH_ERROR,
-    CALC_SUCCESS
+    SYNTAX_ERROR      = -2,
+    MATH_ERROR        = -1,
+    CALC_SUCCESS      = 0
 };
 
-/*********************************** Calculator *******************************/
+/*********************************** Calculate *******************************/
 /*	Description      :	Receives a string and calculates result.
  *
- *	Input            :	char * str = string. string should contain a valid
+ *	Input            :	char* str = string. string should contain a valid
  *	                  	arithmetic expression.
  *
  *					  	Supports in:
  *						addition '+'
  *						subtruction '-'
- *						multiplication '*'
- *						dibision '/'
+ *						multiplication '*' or 'x'
+ *						dibision '/' or ':'
  *						parentheses - '(', ')' - only in a logical order.
  *									  *empty parentheses are not supported!
  *						power '^' - only on positive bases.
@@ -54,6 +54,6 @@ enum calc_status
  *  
  *  Space Complexity : O(n)
  */
-result_t Calculator(char *str);
+result_t Calculate(const char *str);
 
 #endif     /* __CALC_H__ */

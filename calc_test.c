@@ -1,7 +1,6 @@
 /******************************************************************************
 *	Filename	:	calc_test.c
 *	Developer	:	Eyal Weizman
-*	Last Update	:	2020-02-25
 *	Description	:	calc test file
 *******************************************************************************/
 #include <stdio.h> 		/* printf */
@@ -54,7 +53,7 @@ void AddSubtructTest(void)
 	char str[20] = " 5+\n3  -\t4 -\v1 ";
 	
 	printf("Addition + Subtruction:\t\t\t");
-	result = Calculator(str);
+	result = Calculate(str);
 	
 	(3 == result.result)
 	?
@@ -69,7 +68,7 @@ void MultiDivTest(void)
 	char str[20] = " 3 + 5x2/5*3 - 2:1";
 	
 	printf("multiplication + division:\t\t");
-	result = Calculator(str);
+	result = Calculate(str);
 	
 	(7 == result.result)
 	?
@@ -92,11 +91,11 @@ void ErrorsTest(void)
 	result_t result_5 = {0};
 	
 	printf("Errors test:\t\t\t\t");
-	result_1 = Calculator(str1);
-	result_2 = Calculator(str2);
-	result_3 = Calculator(str3);
-	result_4 = Calculator(str4);
-	result_5 = Calculator(str5);
+	result_1 = Calculate(str1);
+	result_2 = Calculate(str2);
+	result_3 = Calculate(str3);
+	result_4 = Calculate(str4);
+	result_5 = Calculate(str5);
 	
 	(-1 			== result_1.result)	&&
 	(SYNTAX_ERROR	== result_1.status)	&&
@@ -120,7 +119,7 @@ void ParenthesesTest(void)
 	result_t result_1 = {0};
 	
 	printf("Parentheses test:\t\t\t");
-	result_1 = Calculator(str1);
+	result_1 = Calculate(str1);
 	
 	(30 			== result_1.result)	&&
 	(CALC_SUCCESS	== result_1.status)
@@ -136,7 +135,7 @@ void PowerTest(void)
 	result_t result_1 = {0};
 	
 	printf("Power test:\t\t\t\t");
-	result_1 = Calculator(str1);
+	result_1 = Calculate(str1);
 	
 	(3	 			== result_1.result)	&&
 	(CALC_SUCCESS	== result_1.status)
@@ -152,7 +151,7 @@ void FloatingPointTest(void)
 	result_t result_1 = {0};
 	
 	printf("FloatingPoint test:\t\t\t");
-	result_1 = Calculator(str1);
+	result_1 = Calculate(str1);
 	
 	(6.5 			== result_1.result)	&&
 	(CALC_SUCCESS	== result_1.status)
