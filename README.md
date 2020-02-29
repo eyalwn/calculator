@@ -1,6 +1,6 @@
 # calculator
 A calculator app - parses a string and prints the result.  
-Include a stack implementation, an automated test unit-test, and a makefile.
+Include a stack implementation, an automated unit-test, and a makefile.
 
 Wrriten in C, based on a state-machine and a stack.
 
